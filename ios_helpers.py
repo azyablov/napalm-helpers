@@ -8,6 +8,7 @@ from typing import Union
 import socket
 from pprint import pprint
 
+# Class to facilitate work with IOS devices
 class IosNetworkDevice():
 
     def __init__(self, hostname: str, username: str, password: str, device_type: str = "ios", *args, **kwargs):
