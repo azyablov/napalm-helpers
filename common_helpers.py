@@ -1,4 +1,3 @@
-# Device information
 import os
 from getpass import getpass
 import napalm
@@ -7,45 +6,50 @@ from napalm import get_network_driver
 from typing import Union
 import socket
 from pprint import pprint
+import yaml
 
-# Class to facilitate work with IOS devices
-class IosNetworkDevice():
 
-    def __init__(self, hostname: str, username: str, password: str, device_type: str = "ios", *args, **kwargs):
-        self.hostname = hostname
-        self.password = password
-        self.username = username
-        self.device_type = device_type
+class NapalmYMLActionIterator:
+    _functions = []
+    _arguments = []
+    _current = 0
 
-    @property
-    def hostname(self):
-        return self.__hostname
+    def __init__(self, func: list = [], args: list = [], yml_file: str = ''):
+        # TODO: Read yaml file and populate functions and arguments. In case no arguments, set it to None.
 
-    @hostname.setter
-    def hostname(self, host: str):
-        self.__hostname = host
-        try:
-            self.__ip_address = socket.gethostbyname(host)
-        except (socket.herror, socket.gaierror) as e:
-            print(e)
-            msg = f"Can't resolve hostname {host}"
-            raise ValueError(msg)
+        if yml_file:
+            with open(yml_file) as f:
+                yaml_out = yaml.load(f, Loader=yaml.FullLoader)
+        print(yaml_out)
+        self._functions = yaml_out['func']
+        self._arguments = yaml_out['args']
 
-    @property
-    def ip_address(self):
-        return self.__ip_address
+    def __next__(self):
+        print("NEXT!")
+        if self._current < len(self._functions):
+            n = self._current
+            self._current += 1
+            return self._functions[n], self._arguments[n]
+        raise StopIteration()
 
-    @property
-    def json(self):
-        return {
-            "hostname": self.__hostname,
-            "username": self.username,
-            "password": self.password,
-            "device_type": self.device_type
-        }
+    def __iter__(self):
+        print("ITER!")
+        return self
 
-    def __str__(self):
-        return str(self.json)
+    def __getitem__(self, item):
+        return self._functions[item], self._arguments[item]
+
+    def __len__(self):
+        return len(self._functions)
+
+    def get_funcs(self, node: napalm.base.base.NetworkDriver):
+        for func, args in self:
+            try:
+                func = eval("node" + "." + func)
+            except AttributeError as att_err:
+                print(f"Function name is incorrect or not implemented by the object {node}")
+                raise
+            yield func, args
 
 
 def load_json_data(file_name: str) -> dict:
@@ -67,6 +71,7 @@ def load_json_data(file_name: str) -> dict:
     else:
         msg = "Can't access file {}".format(file_name)
         raise ValueError(msg)
+
 
 def create_napalm_connection(device: dict) -> napalm.base.base.NetworkDriver:
     dev_type = device.pop("device_type")
@@ -108,3 +113,9 @@ def create_backup(conn_node_instance: napalm.base.base.NetworkDriver, filename: 
             fh.writelines(lines)
 
 
+def load_func_from_yml(host: str) -> tuple:
+    """Used to load napalm functions to be executed per device with arguments."""
+    functions = [sr.get_facts, sr.cli]
+    arguments = [None, "show ip inerface brief"]
+    for f, a in functions, arguments:
+        yield f, a
