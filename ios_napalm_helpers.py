@@ -13,7 +13,7 @@ class FQDNResolutionError(ValueError):
         super().__init__(msg)
 
 # Class to facilitate work with IOS devices
-class NapalmNetworkDevice():
+class NapalmNetworkDevice(metaclass=ABCMeta):
     def __init__(self, hostname: str, username: str, password: str, *args, **kwargs):
         self.hostname = hostname
         self.username = username
